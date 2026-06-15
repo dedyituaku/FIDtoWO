@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>FID → WO Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg:#f0f4f8; --surface:#ffffff; --surface2:#f8fafc; --border:#e2e8f0;
+  --text:#1e293b; --muted:#64748b; --muted2:#94a3b8;
+  --ndf:#2563eb; --ndf-bg:#eff6ff; --ndf-border:#bfdbfe;
+  --dfn:#0891b2; --dfn-bg:#ecfeff; --dfn-border:#a5f3fc;
+  --dfu:#7c3aed; --dfu-bg:#f5f3ff; --dfu-border:#ddd6fe;
+  --cmp:#d97706; --cmp-bg:#fffbeb; --cmp-border:#fde68a;
+  --green:#16a34a; --green-bg:#f0fdf4; --green-border:#bbf7d0;
+  --amber:#d97706; --amber-bg:#fffbeb; --amber-border:#fde68a;
+  --red:#dc2626;  --red-bg:#fef2f2;  --red-border:#fecaca;
+  --teal:#0d9488; --teal-bg:#f0fdfa; --teal-border:#99f6e4;
+  --radius:8px; --shadow:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04);
+  --shadow-md:0 4px 6px rgba(0,0,0,.07),0 2px 4px rgba(0,0,0,.05);
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{min-height:100%;background:var(--bg);color:var(--text);font-family:-apple-system,'Segoe UI',Arial,sans-serif;font-size:13px;}
+
+/* ── HEADER ── */
+.hdr{background:#fff;border-bottom:1px solid var(--border);padding:12px 24px;box-shadow:var(--shadow);position:sticky;top:0;z-index:100;}
+.hdr-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
+.hdr-title{display:flex;align-items:center;gap:10px;}
+.hdr-title h1{font-size:15px;font-weight:700;color:var(--text);}
+.hdr-title .badge{background:var(--bg);border:1px solid var(--border);border-radius:20px;padding:2px 9px;font-size:10px;color:var(--muted);}
+.hdr-meta{font-size:11px;color:var(--muted);}
+
+/* ── TABS ── */
+.tabs{display:flex;gap:4px;}
+.tab{padding:6px 16px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid transparent;color:var(--muted);background:transparent;transition:all .18s;}
+.tab:hover{background:var(--bg);}
+.tab.active.ndf{background:var(--ndf-bg);border-color:var(--ndf-border);color:var(--ndf);}
+.tab.active.dfn{background:var(--dfn-bg);border-color:var(--dfn-border);color:var(--dfn);}
+.tab.active.dfu{background:var(--dfu-bg);border-color:var(--dfu-border);color:var(--dfu);}
+.tab.active.cmp{background:var(--cmp-bg);border-color:var(--cmp-border);color:var(--cmp);}
+.tab .warn{font-size:9px;margin-left:3px;color:var(--amber);}
+
+/* ── SLIDE NAV BAR ── */
+.slide-nav{background:#fff;border-bottom:1px solid var(--border);padding:8px 24px;display:none;align-items:center;gap:10px;}
+.slide-nav.visible{display:flex;}
+.slide-nav label{font-size:11px;font-weight:600;color:var(--muted);white-space:nowrap;}
+.slide-select{
+  flex:1;max-width:420px;padding:6px 12px;border:1.5px solid var(--border);
+  border-radius:6px;font-size:12px;color:var(--text);background:#fff;
+  cursor:pointer;outline:none;appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 10px center;padding-right:32px;
+  transition:border-color .18s;
+}
+.slide-select:focus{border-color:var(--ndf);}
+.slide-counter{font-size:11px;color:var(--muted2);white-space:nowrap;}
+.slide-btns{display:flex;gap:4px;}
+.slide-btn{padding:5px 10px;border:1.5px solid var(--border);border-radius:5px;background:#fff;font-size:11px;cursor:pointer;color:var(--text);transition:all .15s;}
+.slide-btn:hover{background:var(--bg);border-color:var(--muted2);}
+
+/* ── MAIN ── */
+.main{padding:20px 24px;display:none;}
+.main.active{display:block;}
+
+/* ── SLIDE VIEW ── */
+.slide-view{display:none;}
+.slide-view.active{display:block;}
+
+/* ── SLIDE HEADER ── */
+.slide-header{display:flex;align-items:center;gap:10px;margin-bottom:16px;}
+.slide-header .slide-num{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0;}
+.slide-header h2{font-size:14px;font-weight:700;color:var(--text);}
+.slide-header .slide-period{margin-left:auto;font-size:11px;color:var(--muted);background:var(--bg);border:1px solid var(--border);border-radius:20px;padding:2px 10px;}
+
+/* ── KPI ROW ── */
+.kpi-row{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:16px;}
+.kpi{background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;box-shadow:var(--shadow);}
+.kpi-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;}
+.kpi-val{font-size:22px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums;}
+.kpi-sub{font-size:10px;color:var(--muted2);margin-top:3px;}
+.c-green{color:var(--green);} .c-amber{color:var(--amber);} .c-red{color:var(--red);}
+.c-ndf{color:var(--ndf);} .c-dfn{color:var(--dfn);} .c-dfu{color:var(--dfu);}
+
+/* ── GRID LAYOUTS ── */
+.grid-2{display:grid;grid-template-columns:1.1fr 1fr;gap:14px;margin-bottom:14px;}
+.grid-2-eq{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;}
+.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:14px;}
+
+/* ── PANEL ── */
+.panel{background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow);}
+.panel-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);margin-bottom:14px;display:flex;align-items:center;gap:8px;}
+.panel-title::after{content:'';flex:1;height:1px;background:var(--border);}
+
+/* ── FUNNEL ── */
+.funnel-base{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:10px 14px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;}
+.funnel-base .fb-main{font-size:20px;font-weight:700;}
+.funnel-base .fb-sub{font-size:11px;color:var(--muted);}
+.flow-row{margin-bottom:7px;}
+.flow-bar-wrap{display:flex;gap:5px;align-items:center;margin-bottom:2px;}
+.flow-bar{height:22px;border-radius:4px;display:flex;align-items:center;padding:0 8px;font-size:11px;font-weight:700;color:#fff;min-width:42px;white-space:nowrap;transition:width .45s ease;}
+.flow-label{font-size:11px;color:var(--muted);}
+.flow-sub{font-size:10px;color:var(--muted2);padding-left:4px;font-style:italic;}
+.flow-indent{padding-left:16px;border-left:2px solid var(--border);margin-left:9px;margin-top:5px;}
+.fb-green{background:#16a34a;} .fb-amber{background:#d97706;} .fb-red{background:#dc2626;} .fb-teal{background:#0d9488;}
+.funnel-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:12px;}
+.fstat{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px;text-align:center;}
+.fstat-val{font-size:16px;font-weight:700;font-variant-numeric:tabular-nums;}
+.fstat-lbl{font-size:10px;color:var(--muted);margin-top:2px;line-height:1.3;}
+
+/* ── CHANNEL BARS ── */
+.ch-section{margin-bottom:14px;}
+.ch-section-title{font-size:11px;font-weight:600;color:var(--muted);margin-bottom:8px;display:flex;align-items:center;gap:6px;}
+.ch-section-title::after{content:'';flex:1;height:1px;background:var(--border);}
+.ch-row{display:flex;gap:4px;align-items:center;margin-bottom:6px;}
+.ch-label{width:70px;font-size:11px;color:var(--muted);flex-shrink:0;}
+.ch-bars{flex:1;display:flex;gap:2px;border-radius:4px;overflow:hidden;}
+.ch-seg{height:20px;display:flex;align-items:center;padding:0 6px;font-size:10px;font-weight:600;color:#fff;white-space:nowrap;transition:flex .4s ease;}
+.ch-seg.tele{background:#2563eb;} .ch-seg.field{background:#7c3aed;} .ch-seg.unassign{background:#9ca3af;}
+.ch-trend{font-size:10px;margin-left:6px;white-space:nowrap;padding:2px 6px;border-radius:10px;font-weight:600;}
+.ch-trend.up{background:var(--red-bg);color:var(--red);} .ch-trend.down{background:var(--green-bg);color:var(--green);} .ch-trend.flat{background:var(--bg);color:var(--muted);}
+.ch-legend{display:flex;gap:10px;margin-top:4px;font-size:10px;color:var(--muted);}
+.ch-legend span{display:flex;align-items:center;gap:4px;}
+.ch-dot{width:8px;height:8px;border-radius:2px;display:inline-block;}
+
+/* ── BUCKET BARS ── */
+.bkt-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px;}
+.bkt-card{border-radius:6px;padding:10px 12px;text-align:center;}
+.bkt-card.cur{background:var(--green-bg);border:1px solid var(--green-border);}
+.bkt-card.b130{background:var(--amber-bg);border:1px solid var(--amber-border);}
+.bkt-card.b30p{background:var(--red-bg);border:1px solid var(--red-border);}
+.bkt-val{font-size:22px;font-weight:700;}
+.bkt-lbl{font-size:10px;color:var(--muted);margin-top:2px;}
+
+/* ── ROLL 31 ── */
+.roll-cards{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;}
+.roll-card{border-radius:6px;padding:10px 14px;border:1.5px solid;}
+.roll-card.ever{background:var(--amber-bg);border-color:var(--amber-border);}
+.roll-card.never{background:var(--green-bg);border-color:var(--green-border);}
+.roll-card .rv{font-size:26px;font-weight:700;}
+.roll-card .rl{font-size:10px;color:var(--muted);margin-top:2px;}
+.roll-card .rs{font-size:11px;color:var(--muted);margin-top:4px;line-height:1.5;}
+
+/* ── ALERTS ── */
+.alerts-stack{display:flex;flex-direction:column;gap:6px;}
+.alert{display:flex;gap:10px;align-items:flex-start;padding:10px 14px;border-radius:6px;font-size:12px;line-height:1.55;border:1px solid;}
+.alert .ai{flex-shrink:0;font-size:14px;}
+.alert.alarm {background:var(--red-bg);border-color:var(--red-border);}
+.alert.concern{background:var(--amber-bg);border-color:var(--amber-border);}
+.alert.strength{background:var(--green-bg);border-color:var(--green-border);}
+.alert.info{background:var(--ndf-bg);border-color:var(--ndf-border);}
+.alert.anomali{background:var(--dfu-bg);border-color:var(--dfu-border);}
+
+/* ── INSIGHT BOX ── */
+.insight-box{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:10px 14px;font-size:11px;color:var(--muted);line-height:1.6;margin-top:8px;}
+.insight-box b{color:var(--text);}
+
+/* ── SAMPLE WARN ── */
+.sample-banner{background:var(--amber-bg);border:1px solid var(--amber-border);border-radius:6px;padding:8px 12px;font-size:11px;color:var(--amber);margin-bottom:12px;display:flex;gap:8px;align-items:center;}
+
+/* ── COMPARE VIEW ── */
+.cmp-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:16px;}
+.cmp-card{background:#fff;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);}
+.cmp-head{padding:10px 14px;font-weight:700;font-size:13px;display:flex;justify-content:space-between;align-items:center;}
+.cmp-head .cmp-sub{font-size:10px;font-weight:400;opacity:.8;}
+.cmp-body{padding:12px 14px;}
+.cmp-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:12px;}
+.cmp-k{background:var(--bg);border-radius:5px;padding:7px;text-align:center;}
+.cmp-kv{font-size:14px;font-weight:700;} .cmp-kl{font-size:9px;color:var(--muted);}
+.fm-row{display:flex;align-items:center;gap:6px;margin-bottom:4px;}
+.fm-bar{height:16px;border-radius:3px;min-width:28px;display:flex;align-items:center;padding:0 6px;font-size:10px;font-weight:700;color:#fff;white-space:nowrap;}
+.fm-bar.g{background:#16a34a;} .fm-bar.a{background:#d97706;} .fm-bar.r{background:#dc2626;} .fm-bar.t{background:#0d9488;}
+.fm-lbl{font-size:10px;color:var(--muted);}
+.fm-indent{padding-left:12px;border-left:2px solid var(--border);margin-left:6px;margin-top:3px;}
+.cmp-footer{margin-top:8px;padding-top:8px;border-top:1px solid var(--border);display:flex;justify-content:space-between;font-size:10px;color:var(--muted);}
+.chart-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.chart-panel{background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow);}
+.chart-panel canvas{max-height:200px;}
+
+/* ── HIGHLIGHT ROW ── */
+.highlight-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;}
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <div class="hdr-top">
+    <div class="hdr-title">
+      <h1>📊 FID → WO Analysis</h1>
+      <span class="badge">Angsuran 1–6</span>
+      <span class="badge">Jan 2025 – May 2026</span>
+    </div>
+    <div class="hdr-meta">Scope: NDF CAR · DF NEW · DF USED</div>
+  </div>
+  <div class="tabs">
+    <div class="tab ndf active" onclick="switchProduct('ndfcar')">NDF CAR</div>
+    <div class="tab dfn"       onclick="switchProduct('dfnew')">DF NEW <span class="warn">⚠</span></div>
+    <div class="tab dfu"       onclick="switchProduct('dfused')">DF USED</div>
+    <div class="tab cmp"       onclick="switchProduct('compare')">⇄ Compare All</div>
+  </div>
+</div>
+
+<!-- SLIDE NAV BAR -->
+<div class="slide-nav visible" id="slide-nav">
+  <label>Halaman:</label>
+  <select class="slide-select" id="slide-select" onchange="switchSlide(this.value)">
+    <option value="0">📋 Overview — KPI & Ringkasan</option>
+    <option value="1">📊 Trend Bucket Angsuran 1–6</option>
+    <option value="2">🔄 Trend Roll 31 (Ever vs Never)</option>
+    <option value="3">📡 Roll 31 by Channel</option>
+    <option value="4">🔻 Funnel: New Roll → NPL → WO</option>
+  </select>
+  <div class="slide-btns">
+    <button class="slide-btn" onclick="prevSlide()">◀ Prev</button>
+    <button class="slide-btn" onclick="nextSlide()">Next ▶</button>
+  </div>
+  <div class="slide-counter" id="slide-counter">1 / 5</div>
+</div>
+
+<!-- ═══════════ NDF CAR ═══════════ -->
+<div class="main active" id="tab-ndfcar">
+
+  <!-- SLIDE 0: OVERVIEW -->
+  <div class="slide-view active" id="ndfcar-slide-0">
+    <div class="slide-header">
+      <div class="slide-num" style="background:#2563eb">1</div>
+      <h2>Overview — NDF CAR</h2>
+      <span class="slide-period">Jan 2025 – May 2026 · 12.805 kontrak</span>
+    </div>
+    <div class="kpi-row">
+      <div class="kpi"><div class="kpi-label">Current</div><div class="kpi-val c-green">85.0%</div><div class="kpi-sub">Avg angsuran 1–6</div></div>
+      <div class="kpi"><div class="kpi-label">Bucket 1–30</div><div class="kpi-val c-amber">12.0%</div><div class="kpi-sub">Tertinggi di 3 produk</div></div>
+      <div class="kpi"><div class="kpi-label">Bucket 30+</div><div class="kpi-val c-red">2.53%</div><div class="kpi-sub">YoY ↓ di ang 1,2,6</div></div>
+      <div class="kpi"><div class="kpi-label">Roll 31 Ever</div><div class="kpi-val c-amber">29.24%</div><div class="kpi-sub">Naik terus di 2026 ⚠</div></div>
+      <div class="kpi"><div class="kpi-label">Roll 31 Never</div><div class="kpi-val c-green">70.76%</div><div class="kpi-sub">New comer roll</div></div>
+    </div>
+    <div class="highlight-row">
+      <div class="panel">
+        <div class="panel-title">Funnel Ringkasan</div>
+        <div class="funnel-base"><div><div class="fb-main" style="color:#2563eb">12.805 ctr</div><div class="fb-sub">New Roll Jan 2025 – May 2026</div></div></div>
+        <div class="flow-row"><div class="flow-bar-wrap"><div class="flow-bar fb-green" style="width:77%">76.78%</div><div class="flow-label">Never NPL → selesai / maintained ✓</div></div></div>
+        <div class="flow-row"><div class="flow-bar-wrap"><div class="flow-bar fb-amber" style="width:23%">23.22%</div><div class="flow-label">Ever NPL (~2.974 ctr)</div></div>
+          <div class="flow-indent">
+            <div class="flow-row"><div class="flow-bar-wrap"><div class="flow-bar fb-teal" style="width:44%">43.84%</div><div class="flow-label">Belum WO · 52% lunas ✓</div></div></div>
+            <div class="flow-row"><div class="flow-bar-wrap"><div class="flow-bar fb-red" style="width:56%">56.16%</div><div class="flow-label">WO → 98.44% straight</div></div></div>
+          </div>
+        </div>
+      </div>
+      <div class="alerts-stack">
+        <div class="alert alarm"><div class="ai">🔴</div><div><b>Roll 31 Ever naik terus-menerus sepanjang 2026</b> — alarm utama kualitas portfolio. Belum cukup ditekankan di summary.</div></div>
+        <div class="alert info"><div class="ai">📊</div><div><b>Channel = distribusi penanganan:</b> Tele dominan Never 31; Field dominan Ever 31. Bukan ukuran efektivitas.</div></div>
+        <div class="alert concern"><div class="ai">⚠️</div><div><b>Bucket 1-30 tertinggi (12%)</b> — profil NDF: nasabah butuh dana tunai, risiko moral hazard lebih tinggi.</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 1: TREND BUCKET -->
+  <div class="slide-view" id="ndfcar-slide-1">
+    <div class="slide-header"><div class="slide-num" style="background:#2563eb">2</div><h2>Trend Bucket Angsuran 1–6 — NDF CAR</h2><span class="slide-period">Rata-rata bulanan</span></div>
+    <div class="bkt-row">
+      <div class="bkt-card cur"><div class="bkt-val c-green">85.0%</div><div class="bkt-lbl">Current (Lancar)</div></div>
+      <div class="bkt-card b130"><div class="bkt-val c-amber">12.0%</div><div class="bkt-lbl">Bucket 1–30 hari</div></div>
+      <div class="bkt-card b30p"><div class="bkt-val c-red">2.53%</div><div class="bkt-lbl">Bucket 30+ hari</div></div>
+    </div>
+    <div class="grid-2">
+      <div class="panel">
+        <div class="panel-title">Distribusi Bucket per Angsuran</div>
+        <canvas id="chart-ndf-bucket" height="160"></canvas>
+      </div>
+      <div class="panel">
+        <div class="panel-title">Insight YoY May</div>
+        <div class="alerts-stack">
+          <div class="alert strength"><div class="ai">✅</div><div><b>Current naik YoY May</b> — ada perbaikan kualitas portofolio secara keseluruhan.</div></div>
+          <div class="alert strength"><div class="ai">✅</div><div><b>Bucket 1-30 & 30+ turun YoY May</b> — tren membaik.</div></div>
+          <div class="alert info"><div class="ai">📋</div><div><b>Penurunan bucket 30+</b> terjadi di angsuran 1, 2, dan 6 secara YoY. Angsuran 3, 4, 5 perlu dipantau.</div></div>
+          <div class="alert concern"><div class="ai">⚠️</div><div><b>Bucket 1-30 (12%)</b> masih tertinggi di antara 3 produk. DF NEW 9.19%, DF USED 6.55%.</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 2: ROLL 31 -->
+  <div class="slide-view" id="ndfcar-slide-2">
+    <div class="slide-header"><div class="slide-num" style="background:#2563eb">3</div><h2>Trend Roll 31 — NDF CAR</h2><span class="slide-period">Ever vs Never · Angsuran 1–6</span></div>
+    <div class="roll-cards">
+      <div class="roll-card ever"><div class="rv c-amber">29.24%</div><div class="rl">Roll 31 Ever (avg)</div><div class="rs">Kontrak yang <b>sudah pernah</b> Roll 31 di bulan sebelumnya. <b>Naik terus-menerus sepanjang 2026</b> — alarm utama.</div></div>
+      <div class="roll-card never"><div class="rv c-green">70.76%</div><div class="rl">Roll 31 Never (avg)</div><div class="rs">Kontrak yang <b>baru pertama kali</b> roll di bulan pengamatan (new comer roll).</div></div>
+    </div>
+    <div class="grid-2">
+      <div class="panel"><div class="panel-title">Proporsi Ever vs Never</div><canvas id="chart-ndf-roll" height="180"></canvas></div>
+      <div class="panel">
+        <div class="panel-title">Insight Roll 31</div>
+        <div class="alerts-stack">
+          <div class="alert alarm"><div class="ai">🔴</div><div><b>Roll 31 Ever terus naik dari awal 2026</b> — sinyal deteriorasi repeat delinquency. Semakin banyak kontrak berulang kali macet.</div></div>
+          <div class="alert concern"><div class="ai">⚠️</div><div><b>Kenaikan Never 31 YoY May</b> terjadi di angsuran 3, 5, dan 6 — bukan hanya angsuran awal. Ada cohort baru yang masuk masalah di tengah perjalanan.</div></div>
+          <div class="alert info"><div class="ai">📊</div><div>Mayoritas (70.76%) adalah Never 31 — baru pertama kali macet. Masih ada window untuk intercept sebelum menjadi Ever.</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 3: CHANNEL -->
+  <div class="slide-view" id="ndfcar-slide-3">
+    <div class="slide-header"><div class="slide-num" style="background:#2563eb">4</div><h2>Roll 31 by Channel — NDF CAR</h2><span class="slide-period">Distribusi penanganan Tele vs Field</span></div>
+    <div class="grid-2">
+      <div class="panel">
+        <div class="panel-title">Distribusi Channel</div>
+        <div class="ch-section">
+          <div class="ch-section-title">Never 31 (New Comer Roll)</div>
+          <div class="ch-row"><div class="ch-label">Tele</div><div class="ch-bars"><div class="ch-seg tele" style="flex:70">70%</div><div class="ch-seg field" style="flex:22">22%</div><div class="ch-seg unassign" style="flex:8">8%</div></div><span class="ch-trend down">Tele ↓ 2026</span></div>
+          <div class="ch-row"><div class="ch-label">Field</div><div class="ch-bars"><div class="ch-seg tele" style="flex:70"></div><div class="ch-seg field" style="flex:22"></div><div class="ch-seg unassign" style="flex:8"></div></div><span class="ch-trend up">Field ↑ 2026</span></div>
+          <div class="ch-legend"><span><i class="ch-dot" style="background:#2563eb"></i>Tele</span><span><i class="ch-dot" style="background:#7c3aed"></i>Field</span><span><i class="ch-dot" style="background:#9ca3af"></i>Unassign</span></div>
+        </div>
+        <div class="ch-section">
+          <div class="ch-section-title">Ever 31 (Repeat Delinquent)</div>
+          <div class="ch-row"><div class="ch-label">Field</div><div class="ch-bars"><div class="ch-seg tele" style="flex:30">30%</div><div class="ch-seg field" style="flex:62">62%</div><div class="ch-seg unassign" style="flex:8">8%</div></div><span class="ch-trend up">Field ↑ YoY</span></div>
+          <div class="ch-legend"><span><i class="ch-dot" style="background:#2563eb"></i>Tele</span><span><i class="ch-dot" style="background:#7c3aed"></i>Field</span><span><i class="ch-dot" style="background:#9ca3af"></i>Unassign</span></div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-title">Insight Channel</div>
+        <div class="alerts-stack">
+          <div class="alert info"><div class="ai">📊</div><div><b>Channel = distribusi penanganan, bukan ukuran efektivitas.</b> Tele dominan menangani Never 31; Field dominan menangani Ever 31. Ini cerminan alokasi segmen.</div></div>
+          <div class="alert concern"><div class="ai">⚠️</div><div><b>Proporsi Field di Never 31 naik di 2026</b> — ada pergeseran kontrak baru yang macet ke Field. Tele mengalami penurunan proporsi.</div></div>
+          <div class="alert concern"><div class="ai">⚠️</div><div><b>Field makin dominan di Ever 31 YoY</b> — volume kontrak berulang-macet yang ditangani Field makin besar.</div></div>
+          <div class="alert alarm"><div class="ai">🔴</div><div><b>Kontrak Unassign perlu dimonitor</b> — kontrak tanpa penugasan berisiko tidak ter-handle sama sekali.</div></div>
+        </div>
+        <div class="insight-box">📋 <b>Catatan slide 4 vs slide 17 (versi detail):</b> Slide 4 menyebut "Apr–Mar 2026" sedangkan slide 17 menyebut "semester 1 2026" untuk periode yang sama. Slide 17 juga menyebutkan kategori <b>Ctr Unassign</b> yang tidak ada di slide 4. <b>Harap dikonfirmasi.</b></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 4: FUNNEL -->
+  <div class="slide-view" id="ndfcar-slide-4">
+    <div class="slide-header"><div class="slide-num" style="background:#2563eb">5</div><h2>Funnel New Roll → NPL → WO — NDF CAR</h2><span class="slide-period">Jan 2025 – May 2026</span></div>
+    <div class="grid-2">
+      <div class="panel">
+        <div class="panel-title">Flow Kontrak FID</div>
+        <div class="funnel-base"><div><div class="fb-main" style="color:#2563eb">12.805 ctr</div><div class="fb-sub">Total New Roll (base) Jan 2025 – May 2026</div></div></div>
+        <div class="flow-row"><div class="flow-bar-wrap"><div class="flow-bar fb-green" style="width:77%">76.78%</div><div class="flow-label">Never NPL → selesai / maintained ✓</div></div></div>
+        <div class="flow-row"><div class="flow-bar-wrap"><div class="flow-bar fb-amber" style="width:23%">23.22%</div><div class="flow-label">Ever NPL (~2.974 ctr)</div></div>
+          <div class="flow-indent">
+            <div class="flow-row"><div class="flow-bar-wrap"><div class="flow-bar fb-teal" style="width:44%">43.84%</div><div class="flow-label">Belum WO</div></div><div class="flow-sub">52% di antaranya lunas ✓</div></div>
+            <div class="flow-row"><div class="flow-bar-wrap"><div class="flow-bar fb-red" style="width:56%">56.16%</div><div class="flow-label">WO (~1.671 ctr)</div></div></div>
+            <div class="flow-indent">
+              <div class="flow-row"><div class="flow-bar-wrap"><div class="flow-bar fb-red" style="width:90%">98.44% Straight to WO</div><div class="flow-label">(1.643 ctr)</div></div></div>
+            </div>
+          </div>
+        </div>
+        <div class="funnel-stats">
+          <div class="fstat"><div class="fstat-val c-red">98.44%</div><div class="fstat-lbl">Straight to WO<br>(dari yang WO)</div></div>
+          <div class="fstat"><div class="fstat-val c-amber">1.643</div><div class="fstat-lbl">Kontrak<br>Straight WO</div></div>
+          <div class="fstat"><div class="fstat-val c-ndf">10.18%</div><div class="fstat-lbl">FID → Straight WO<br>(% dari base)</div></div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-title">Insight Funnel</div>
+        <div class="alerts-stack">
+          <div class="alert strength"><div class="ai">✅</div><div><b>76.78% tidak pernah menyentuh NPL</b> — mayoritas kontrak FID NDF CAR selesai atau maintained tanpa masalah serius.</div></div>
+          <div class="alert strength"><div class="ai">✅</div><div><b>43.84% dari yang NPL tidak berakhir WO</b> — dan 52% di antaranya bahkan lunas. Ada recovery yang berhasil di fase NPL.</div></div>
+          <div class="alert concern"><div class="ai">⚠️</div><div><b>Polanya biner:</b> kontrak NPL cenderung either <i>bayar lunas/keluar</i> OR <i>langsung WO tanpa pembayaran di tengah.</i></div></div>
+          <div class="alert alarm"><div class="ai">🔴</div><div><b>Straight to WO 98.44%</b> — dari kontrak yang akhirnya WO, hampir tidak ada yang membayar setelah NPL sebelum di-WO. Bukan berarti rescue tidak ada, tapi rescue berhasil <b>sebelum</b> masuk WO.</div></div>
+        </div>
+        <div class="insight-box">📋 <b>Implikasi segmentasi:</b> Yang perlu diidentifikasi lebih awal adalah kontrak mana yang cenderung "hilang" (WO) vs yang akan "kembali" (bayar/lunas). Begitu masuk jalur WO, tidak ada pembayaran antara NPL dan WO.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ DF NEW ═══════════ -->
+<div class="main" id="tab-dfnew">
+  <div class="slide-view active" id="dfnew-slide-0">
+    <div class="sample-banner">⚠ Sample hanya 65 kontrak — angka % sangat volatile (±1 ctr ≈ ±1.5%). Semua insight bersifat indikatif.</div>
+    <div class="slide-header"><div class="slide-num" style="background:#0891b2">1</div><h2>Overview — DF NEW</h2><span class="slide-period">Jan – Oct 2025 · 65 kontrak</span></div>
+    <div class="kpi-row">
+      <div class="kpi"><div class="kpi-label">Current</div><div class="kpi-val c-green">88.27%</div><div class="kpi-sub">Avg angsuran 1–6</div></div>
+      <div class="kpi"><div class="kpi-label">Bucket 1–30</div><div class="kpi-val c-amber">9.19%</div><div class="kpi-sub">Lebih rendah dari NDF</div></div>
+      <div class="kpi"><div class="kpi-label">Bucket 30+</div><div class="kpi-val c-red">2.54%</div><div class="kpi-sub">Dominasi angsuran 6 ⚠</div></div>
+      <div class="kpi"><div class="kpi-label">Roll 31 Ever</div><div class="kpi-val c-amber">22.94%</div><div class="kpi-sub">Fluktuatif (sample kecil)</div></div>
+      <div class="kpi"><div class="kpi-label">Roll 31 Never</div><div class="kpi-val c-green">77.06%</div><div class="kpi-sub">New comer roll</div></div>
+    </div>
+    <div class="highlight-row">
+      <div class="panel">
+        <div class="panel-title">Funnel Ringkasan</div>
+        <div class="funnel-base"><div><div class="fb-main" style="color:#0891b2">65 ctr</div><div class="fb-sub">New Roll Jan – Oct 2025</div></div></div>
+        <div class="flow-row"><div class="flow-bar-wrap"><div class="flow-bar fb-green" style="width:85%">84.62%</div><div class="flow-label">Never NPL ✓</div></div></div>
+        <div class="flow-row"><div class="flow-bar-wrap"><div class="flow-bar fb-amber" style="width:15%">15.38%</div><div class="flow-label">Ever NPL (~10 ctr)</div></div>
+          <div class="flow-indent">
+            <div class="flow-row"><div class="flow-bar-wrap"><div class="flow-bar fb-teal" style="width:50%">50%</div><div class="flow-label">Belum WO ✓</div></div></div>
+            <div class="flow-row"><div class="flow-bar-wrap"><div class="flow-bar fb-red" style="width:50%">50%</div><div class="flow-label">WO → 100% straight</div></div></div>
+          </div>
+        </div>
+      </div>
+      <div class="alerts-stack">
+        <div class="alert strength"><div class="ai">✅</div><div><b>NPL entry rate terendah (15.38%)</b> & Never NPL terbesar (84.62%) — profil terbaik di antara 3 produk.</div></div>
+        <div class="alert anomali"><div class="ai">🔍</div><div><b>Anomali Angsuran 6:</b> Bucket 30+ didominasi angsuran 6 (>90%) — pola tidak lazim, perlu investigasi.</div></div>
+        <div class="alert concern"><div class="ai">⚠️</div><div><b>Sample 65 ctr</b> — jangan jadikan basis keputusan besar. Perluas window observasi.</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="slide-view" id="dfnew-slide-1">
+    <div class="sample-banner">⚠ Sample 65 kontrak — angka persentase sangat sensitif.</div>
+    <div class="slide-header"><div class="slide-num" style="background:#0891b2">2</div><h2>Trend Bucket Angsuran 1–6 — DF NEW</h2></div>
+    <div class="bkt-row"><div class="bkt-card cur"><div class="bkt-val c-green">88.27%</div><div class="bkt-lbl">Current</div></div><div class="bkt-card b130"><div class="bkt-val c-amber">9.19%</div><div class="bkt-lbl">Bucket 1–30</div></div><div class="bkt-card b30p"><div class="bkt-val c-red">2.54%</div><div class="bkt-lbl">Bucket 30+</div></div></div>
+    <div class="grid-2">
+      <div class="panel"><div class="panel-title">Distribusi Bucket</div><canvas id="chart-dfn-bucket" height="160"></canvas></div>
+      <div class="panel">
+        <div class="panel-title">Insight Bucket DF NEW</div>
+        <div class="alerts-stack">
+          <div class="alert anomali"><div class="ai">🔍</div><div><b>ANOMALI: Bucket 30+ didominasi angsuran 6 (>90%)</b> — pola tidak lazim. Pada produk lain, angsuran awal yang dominan. Perlu investigasi: apakah ada program/ketentuan khusus di angsuran 6?</div></div>
+          <div class="alert strength"><div class="ai">✅</div><div>Current 88.27% lebih baik dari NDF CAR (85%) — profil kendaraan baru lebih terjaga.</div></div>
+          <div class="alert concern"><div class="ai">⚠️</div><div>Data bucket terlalu terbatas untuk analisis tren — sample 65 ctr tidak representatif.</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="slide-view" id="dfnew-slide-2">
+    <div class="sample-banner">⚠ Sample 65 kontrak — proporsi sangat fluktuatif.</div>
+    <div class="slide-header"><div class="slide-num" style="background:#0891b2">3</div><h2>Trend Roll 31 — DF NEW</h2></div>
+    <div class="roll-cards">
+      <div class="roll-card ever"><div class="rv c-amber">22.94%</div><div class="rl">Roll 31 Ever (avg)</div><div class="rs">Lebih rendah dari NDF CAR (29.24%). Proporsi <b>sangat fluktuatif</b> akibat sample kecil.</div></div>
+      <div class="roll-card never"><div class="rv c-green">77.06%</div><div class="rl">Roll 31 Never (avg)</div><div class="rs">Kontrak baru pertama kali roll. Dominasi Never 31 lebih tinggi dibanding NDF CAR.</div></div>
+    </div>
+    <div class="grid-2">
+      <div class="panel"><div class="panel-title">Proporsi Ever vs Never</div><canvas id="chart-dfn-roll" height="180"></canvas></div>
+      <div class="panel">
+        <div class="panel-title">Insight Roll 31 DF NEW</div>
+        <div class="alerts-stack">
+          <div class="alert concern"><div class="ai">⚠️</div><div><b>Proporsi sangat fluktuatif</b> — ini bisa murni akibat sample kecil (65 ctr), bukan tren nyata. Interpretasi hati-hati.</div></div>
+          <div class="alert info"><div class="ai">📊</div><div>Secara proporsi angsuran, kontrak Never 31 DF NEW <b>fluktuatif di setiap bulannya</b> tanpa pola yang jelas.</div></div>
+          <div class="alert strength"><div class="ai">✅</div><div>Ever 31 rate (22.94%) lebih rendah dari NDF CAR (29.24%) — repeat delinquency lebih rendah.</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="slide-view" id="dfnew-slide-3">
+    <div class="sample-banner">⚠ Sample 65 kontrak — kesimpulan channel bersifat indikatif.</div>
+    <div class="slide-header"><div class="slide-num" style="background:#0891b2">4</div><h2>Roll 31 by Channel — DF NEW</h2></div>
+    <div class="grid-2">
+      <div class="panel">
+        <div class="panel-title">Distribusi Channel</div>
+        <div class="ch-section"><div class="ch-section-title">Never 31</div><div class="ch-row"><div class="ch-label">Tele</div><div class="ch-bars"><div class="ch-seg tele" style="flex:78">78%</div><div class="ch-seg field" style="flex:18">18%</div><div class="ch-seg unassign" style="flex:4">4%</div></div><span class="ch-trend flat">Dominan</span></div><div class="ch-legend"><span><i class="ch-dot" style="background:#2563eb"></i>Tele</span><span><i class="ch-dot" style="background:#7c3aed"></i>Field</span><span><i class="ch-dot" style="background:#9ca3af"></i>Unassign</span></div></div>
+        <div class="ch-section"><div class="ch-section-title">Ever 31</div><div class="ch-row"><div class="ch-label">Field</div><div class="ch-bars"><div class="ch-seg tele" style="flex:18">18%</div><div class="ch-seg field" style="flex:78">78%</div><div class="ch-seg unassign" style="flex:4">4%</div></div><span class="ch-trend flat">Dominan</span></div><div class="ch-legend"><span><i class="ch-dot" style="background:#2563eb"></i>Tele</span><span><i class="ch-dot" style="background:#7c3aed"></i>Field</span></div></div>
+      </div>
+      <div class="panel">
+        <div class="panel-title">Insight Channel DF NEW</div>
+        <div class="alerts-stack">
+          <div class="alert info"><div class="ai">📊</div><div>Pola <b>konsisten dengan semua produk</b>: Tele dominan Never 31, Field dominan Ever 31. Ini mengkonfirmasi pembagian segmen bersifat lintas produk.</div></div>
+          <div class="alert concern"><div class="ai">⚠️</div><div>Dengan sample 65 ctr, analisis channel per angsuran tidak reliable. Perlu data lebih banyak.</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="slide-view" id="dfnew-slide-4">
+    <div class="sample-banner">⚠ Sample 65 kontrak — angka absolut sangat kecil (10 NPL, 5 WO).</div>
+    <div class="slide-header"><div class="slide-num" style="background:#0891b2">5</div><h2>Funnel New Roll → NPL → WO — DF NEW</h2><span class="slide-period">Jan – Oct 2025</span></div>
+    <div class="grid-2">
+      <div class="panel">
+        <div class="panel-title">Flow Kontrak FID</div>
+        <div class="funnel-base"><div><div class="fb-main" style="color:#0891b2">65 ctr</div><div class="fb-sub">Total New Roll Jan – Oct 2025</div></div></div>
+        <div class="flow-row"><div class="flow-bar-wrap"><div class="flow-bar fb-green" style="width:85%">84.62%</div><div class="flow-label">Never NPL → selesai / maintained ✓</div></div></div>
+        <div class="flow-row"><div class="flow-bar-wrap"><div class="flow-bar fb-amber" style="width:15%">15.38%</div><div class="flow-label">Ever NPL (~10 ctr)</div></div>
+          <div class="flow-indent">
+            <div class="flow-row"><div class="flow-bar-wrap"><div class="flow-bar fb-teal" style="width:50%">50.00%</div><div class="flow-label">Belum WO (~5 ctr) ✓</div></div></div>
+            <div class="flow-row"><div class="flow-bar-wrap"><div class="flow-bar fb-red" style="width:50%">50.00%</div><div class="flow-label">WO (5 ctr)</div></div>
+              <div class="flow-indent"><div class="flow-row"><div class="flow-bar-wrap"><div class="flow-bar fb-red" style="width:90%">100% Straight to WO</div></div></div></div>
+            </div>
+          </div>
+        </div>
+        <div class="funnel-stats">
+          <div class="fstat"><div class="fstat-val c-red">100%</div><div class="fstat-lbl">Straight to WO<br>(dari yang WO)</div></div>
+          <div class="fstat"><div class="fstat-val c-amber">5</div><div class="fstat-lbl">Kontrak<br>Straight WO</div></div>
+          <div class="fstat"><div class="fstat-val c-dfn">7.69%</div><div class="fstat-lbl">FID → Straight WO<br>(% dari base)</div></div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-title">Insight Funnel DF NEW</div>
+        <div class="alerts-stack">
+          <div class="alert strength"><div class="ai">✅</div><div><b>NPL entry rate terendah (15.38%)</b> dari 3 produk. Profil DF NEW (kendaraan baru + DP) menjaga kualitas nasabah.</div></div>
+          <div class="alert concern"><div class="ai">⚠️</div><div><b>Angka absolut sangat kecil:</b> 65 ctr base, 10 NPL, 5 WO. Perubahan 1 kontrak mengubah % secara signifikan. Jangan buat keputusan besar dari data ini.</div></div>
+          <div class="alert info"><div class="ai">📊</div><div>50% dari NPL berhasil diselesaikan tanpa WO — perlu dipantau apakah tren ini konsisten saat sample lebih besar.</div></div>
+          <div class="alert info"><div class="ai">📋</div><div><b>Periode observasi hanya Jan–Oct 2025.</b> Perlu perpanjangan ke 2026 untuk melihat tren yang lebih representatif.</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ DF USED ═══════════ -->
+<div class="main" id="tab-dfused">
+  <div class="slide-view active" id="dfused-slide-0">
+    <div class="slide-header"><div class="slide-num" style="background:#7c3aed">1</div><h2>Overview — DF USED</h2><span class="slide-period">Jan – Oct 2025 · 935 kontrak</span></div>
+    <div class="kpi-row">
+      <div class="kpi"><div class="kpi-label">Current</div><div class="kpi-val c-green">91.31%</div><div class="kpi-sub">Tertinggi di 3 produk ✓</div></div>
+      <div class="kpi"><div class="kpi-label">Bucket 1–30</div><div class="kpi-val c-amber">6.55%</div><div class="kpi-sub">Terendah di 3 produk</div></div>
+      <div class="kpi"><div class="kpi-label">Bucket 30+</div><div class="kpi-val c-red">2.14%</div><div class="kpi-sub">YoY ↓ di ang 1,2,3,4</div></div>
+      <div class="kpi"><div class="kpi-label">Roll 31 Ever</div><div class="kpi-val c-amber">13.44%</div><div class="kpi-sub">Terendah di 3 produk</div></div>
+      <div class="kpi"><div class="kpi-label">Roll 31 Never</div><div class="kpi-val c-green">86.56%</div><div class="kpi-sub">Tertinggi di 3 produk</div></div>
+    </div>
+    <div class="highlight-row">
+      <div class="panel">
+        <div class="panel-title">Funnel Ringkasan — PARADOKS DF USED</div>
+        <div class="funnel-base"><div><div class="fb-main" style="color:#7c3aed">935 ctr</div><div class="fb-sub">New Roll Jan – Oct 2025</div></div></div>
+        <div class="flow-row"><div class="flow-bar-wrap"><div class="flow-bar fb-green" style="width:67%">67.17%</div><div class="flow-label">Never NPL ✓</div></div></div>
+        <div class="flow-row"><div class="flow-bar-wrap"><div class="flow-bar fb-amber" style="width:33%">32.83%</div><div class="flow-label">Ever NPL (~307 ctr)</div></div>
+          <div class="flow-indent">
+            <div class="flow-row"><div class="flow-bar-wrap"><div class="flow-bar fb-teal" style="width:19%">18.57%</div><div class="flow-label">Belum WO ✓</div></div></div>
+            <div class="flow-row"><div class="flow-bar-wrap"><div class="flow-bar fb-red" style="width:81%">81.43%</div><div class="flow-label">WO → 99.19% straight 🔴</div></div></div>
+          </div>
+        </div>
+      </div>
+      <div class="alerts-stack">
+        <div class="alert alarm"><div class="ai">🔴</div><div><b>PARADOKS:</b> Portfolio terbaik di permukaan (Current 91.31%) tapi NPL-to-WO 81.43% adalah yang TERTINGGI dari semua produk.</div></div>
+        <div class="alert alarm"><div class="ai">🔴</div><div><b>Window rescue sangat sempit:</b> 99.19% WO adalah straight to WO (3–4 bulan setelah NPL). Intercept harus dilakukan lebih awal.</div></div>
+        <div class="alert concern"><div class="ai">⚠️</div><div><b>Tele Never 31 DF USED turun di 2026</b> — waspadai gap coverage kontrak Never 31.</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="slide-view" id="dfused-slide-1">
+    <div class="slide-header"><div class="slide-num" style="background:#7c3aed">2</div><h2>Trend Bucket Angsuran 1–6 — DF USED</h2></div>
+    <div class="bkt-row"><div class="bkt-card cur"><div class="bkt-val c-green">91.31%</div><div class="bkt-lbl">Current (Terbaik)</div></div><div class="bkt-card b130"><div class="bkt-val c-amber">6.55%</div><div class="bkt-lbl">Bucket 1–30</div></div><div class="bkt-card b30p"><div class="bkt-val c-red">2.14%</div><div class="bkt-lbl">Bucket 30+</div></div></div>
+    <div class="grid-2">
+      <div class="panel"><div class="panel-title">Distribusi Bucket</div><canvas id="chart-dfu-bucket" height="160"></canvas></div>
+      <div class="panel">
+        <div class="panel-title">Insight Bucket DF USED</div>
+        <div class="alerts-stack">
+          <div class="alert strength"><div class="ai">✅</div><div><b>Current ratio 91.31% — tertinggi dari semua produk.</b> YoY May: Current naik, bucket 1-30 & 30+ turun.</div></div>
+          <div class="alert info"><div class="ai">📋</div><div><b>Penurunan bucket 30+ di angsuran 1, 2, 3, dan 4</b> — lebih banyak angsuran yang membaik dibanding NDF CAR (hanya 1,2,6).</div></div>
+          <div class="alert alarm"><div class="ai">🔴</div><div><b>JANGAN TERLENA:</b> Meski bucket terbaik, DF USED punya NPL-to-WO 81.43% — tertinggi. Bucket sehat tidak berarti aman jika sudah masuk NPL.</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="slide-view" id="dfused-slide-2">
+    <div class="slide-header"><div class="slide-num" style="background:#7c3aed">3</div><h2>Trend Roll 31 — DF USED</h2></div>
+    <div class="roll-cards">
+      <div class="roll-card ever"><div class="rv c-amber">13.44%</div><div class="rl">Roll 31 Ever (avg) — Terendah</div><div class="rs">Repeat delinquency paling rendah di antara 3 produk. Proporsi fluktuatif.</div></div>
+      <div class="roll-card never"><div class="rv c-green">86.56%</div><div class="rl">Roll 31 Never (avg) — Tertinggi</div><div class="rs">Mayoritas besar adalah new comer roll — baru pertama kali macet.</div></div>
+    </div>
+    <div class="grid-2">
+      <div class="panel"><div class="panel-title">Proporsi Ever vs Never</div><canvas id="chart-dfu-roll" height="180"></canvas></div>
+      <div class="panel">
+        <div class="panel-title">Insight Roll 31 DF USED</div>
+        <div class="alerts-stack">
+          <div class="alert strength"><div class="ai">✅</div><div><b>Ever 31 terendah (13.44%)</b> — kontrak yang berulang kali macet paling sedikit proporsinya.</div></div>
+          <div class="alert alarm"><div class="ai">🔴</div><div><b>Paradoks:</b> Ever 31 rendah tapi NPL-to-WO 81.43%. Kontrak DF USED cenderung langsung "hilang" ketika masuk jalur WO — tanpa sinyal berulang-macet sebelumnya.</div></div>
+          <div class="alert info"><div class="ai">📊</div><div>Proporsi fluktuatif antara Ever dan Never di setiap bulannya — tidak ada tren yang konsisten.</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="slide-view" id="dfused-slide-3">
+    <div class="slide-header"><div class="slide-num" style="background:#7c3aed">4</div><h2>Roll 31 by Channel — DF USED</h2></div>
+    <div class="grid-2">
+      <div class="panel">
+        <div class="panel-title">Distribusi Channel</div>
+        <div class="ch-section"><div class="ch-section-title">Never 31</div><div class="ch-row"><div class="ch-label">Tele</div><div class="ch-bars"><div class="ch-seg tele" style="flex:68">68%</div><div class="ch-seg field" style="flex:24">24%</div><div class="ch-seg unassign" style="flex:8">8%</div></div><span class="ch-trend down">↓ 2026</span></div><div class="ch-legend"><span><i class="ch-dot" style="background:#2563eb"></i>Tele</span><span><i class="ch-dot" style="background:#7c3aed"></i>Field</span><span><i class="ch-dot" style="background:#9ca3af"></i>Unassign</span></div></div>
+        <div class="ch-section"><div class="ch-section-title">Ever 31</div><div class="ch-row"><div class="ch-label">Field</div><div class="ch-bars"><div class="ch-seg tele" style="flex:20">20%</div><div class="ch-seg field" style="flex:74">74%</div><div class="ch-seg unassign" style="flex:6">6%</div></div><span class="ch-trend flat">Dominan</span></div><div class="ch-legend"><span><i class="ch-dot" style="background:#2563eb"></i>Tele</span><span><i class="ch-dot" style="background:#7c3aed"></i>Field</span></div></div>
+      </div>
+      <div class="panel">
+        <div class="panel-title">Insight Channel DF USED</div>
+        <div class="alerts-stack">
+          <div class="alert concern"><div class="ai">⚠️</div><div><b>Tele Never 31 DF USED turun proporsinya di 2026.</b> Pastikan tidak ada gap coverage — kontrak Never 31 yang tidak ter-handle berisiko langsung jatuh ke jalur WO mengingat NPL-to-WO DF USED sangat tinggi.</div></div>
+          <div class="alert info"><div class="ai">📊</div><div>Pola konsisten: Tele dominan Never 31, Field dominan Ever 31 — sama dengan semua produk. Distribusi penanganan, bukan efektivitas.</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="slide-view" id="dfused-slide-4">
+    <div class="slide-header"><div class="slide-num" style="background:#7c3aed">5</div><h2>Funnel New Roll → NPL → WO — DF USED</h2><span class="slide-period">Jan – Oct 2025 · CONCERN UTAMA</span></div>
+    <div class="grid-2">
+      <div class="panel">
+        <div class="panel-title">Flow Kontrak FID</div>
+        <div class="funnel-base"><div><div class="fb-main" style="color:#7c3aed">935 ctr</div><div class="fb-sub">Total New Roll Jan – Oct 2025</div></div></div>
+        <div class="flow-row"><div class="flow-bar-wrap"><div class="flow-bar fb-green" style="width:67%">67.17%</div><div class="flow-label">Never NPL → selesai / maintained ✓</div></div></div>
+        <div class="flow-row"><div class="flow-bar-wrap"><div class="flow-bar fb-amber" style="width:33%">32.83%</div><div class="flow-label">Ever NPL (~307 ctr)</div></div>
+          <div class="flow-indent">
+            <div class="flow-row"><div class="flow-bar-wrap"><div class="flow-bar fb-teal" style="width:19%">18.57%</div><div class="flow-label">Belum WO (~57 ctr) ✓</div></div></div>
+            <div class="flow-row"><div class="flow-bar-wrap"><div class="flow-bar fb-red" style="width:81%">81.43%</div><div class="flow-label">WO (~250 ctr) 🔴</div></div>
+              <div class="flow-indent"><div class="flow-row"><div class="flow-bar-wrap"><div class="flow-bar fb-red" style="width:90%">99.19% Straight to WO</div><div class="flow-label">(244 ctr)</div></div></div></div>
+            </div>
+          </div>
+        </div>
+        <div class="funnel-stats">
+          <div class="fstat"><div class="fstat-val c-red">99.19%</div><div class="fstat-lbl">Straight to WO<br>(dari yang WO)</div></div>
+          <div class="fstat"><div class="fstat-val c-amber">244</div><div class="fstat-lbl">Kontrak<br>Straight WO</div></div>
+          <div class="fstat"><div class="fstat-val c-dfu">6.10%</div><div class="fstat-lbl">FID → Straight WO<br>(% dari base)</div></div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-title">Insight Funnel DF USED — PRIORITAS 1</div>
+        <div class="alerts-stack">
+          <div class="alert alarm"><div class="ai">🔴</div><div><b>NPL-to-WO 81.43% — tertinggi dari semua produk.</b> Bandingkan: NDF CAR 56.16%, DF NEW 50%. Begitu masuk NPL, hampir pasti WO.</div></div>
+          <div class="alert alarm"><div class="ai">🔴</div><div><b>Window rescue 3–4 bulan, hampir tidak ada recovery antara NPL dan WO.</b> 99.19% straight to WO = kontrak tidak membayar setelah NPL sebelum di-WO.</div></div>
+          <div class="alert strength"><div class="ai">✅</div><div>67.17% tidak pernah menyentuh NPL — mayoritas masih aman. Namun NPL entry rate 32.83% juga tertinggi dibanding DF NEW (15.38%).</div></div>
+          <div class="alert concern"><div class="ai">⚠️</div><div><b>Action segera:</b> Perlu strategi NPL Recovery khusus DF USED. Intercept lebih awal — idealnya di fase bucket 30+ atau awal NPL, sebelum 3–4 bulan jatuh ke WO.</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ COMPARE ═══════════ -->
+<div class="main" id="tab-compare">
+  <div class="slide-header"><div class="slide-num" style="background:#d97706">⇄</div><h2>Perbandingan Lintas Produk</h2><span class="slide-period">NDF CAR · DF NEW · DF USED</span></div>
+  <div class="cmp-grid">
+    <div class="cmp-card"><div class="cmp-head" style="background:#eff6ff;color:#2563eb;">NDF CAR <span class="cmp-sub">12.805 ctr · Jan 2025–May 2026</span></div><div class="cmp-body"><div class="cmp-kpis"><div class="cmp-k"><div class="cmp-kv c-green">85%</div><div class="cmp-kl">Current</div></div><div class="cmp-k"><div class="cmp-kv c-amber">29.24%</div><div class="cmp-kl">Ever 31</div></div><div class="cmp-k"><div class="cmp-kv" style="color:#2563eb">12%</div><div class="cmp-kl">Bkt 1-30</div></div></div><div style="font-size:10px;color:var(--muted);margin-bottom:6px;font-weight:700;text-transform:uppercase;">FUNNEL</div><div class="fm-row"><div class="fm-bar g" style="width:77%">76.78%</div><div class="fm-lbl">Never NPL ✓</div></div><div class="fm-row"><div class="fm-bar a" style="width:23%">23.22%</div><div class="fm-lbl">Ever NPL</div></div><div class="fm-indent"><div class="fm-row"><div class="fm-bar t" style="width:44%">43.84%</div><div class="fm-lbl">Belum WO (52% lunas)</div></div><div class="fm-row"><div class="fm-bar r" style="width:56%">56.16%</div><div class="fm-lbl">WO (98.44% straight)</div></div></div><div class="cmp-footer"><span>FID→WO: <b style="color:#2563eb">10.18%</b></span><span>Straight WO: <b style="color:var(--red)">98.44%</b></span></div></div></div>
+    <div class="cmp-card"><div class="cmp-head" style="background:#ecfeff;color:#0891b2;">DF NEW <span class="cmp-sub">65 ctr ⚠ · Jan–Oct 2025</span></div><div class="cmp-body"><div class="cmp-kpis"><div class="cmp-k"><div class="cmp-kv c-green">88.27%</div><div class="cmp-kl">Current</div></div><div class="cmp-k"><div class="cmp-kv c-amber">22.94%</div><div class="cmp-kl">Ever 31</div></div><div class="cmp-k"><div class="cmp-kv" style="color:#0891b2">9.19%</div><div class="cmp-kl">Bkt 1-30</div></div></div><div style="font-size:10px;color:var(--muted);margin-bottom:6px;font-weight:700;text-transform:uppercase;">FUNNEL</div><div class="fm-row"><div class="fm-bar g" style="width:85%">84.62%</div><div class="fm-lbl">Never NPL ✓</div></div><div class="fm-row"><div class="fm-bar a" style="width:15%">15.38%</div><div class="fm-lbl">Ever NPL</div></div><div class="fm-indent"><div class="fm-row"><div class="fm-bar t" style="width:50%">50.00%</div><div class="fm-lbl">Belum WO</div></div><div class="fm-row"><div class="fm-bar r" style="width:50%">50.00%</div><div class="fm-lbl">WO (100% straight)</div></div></div><div class="cmp-footer"><span>FID→WO: <b style="color:#0891b2">7.69%</b></span><span>Straight WO: <b style="color:var(--red)">100%</b></span></div></div></div>
+    <div class="cmp-card"><div class="cmp-head" style="background:#f5f3ff;color:#7c3aed;">DF USED <span class="cmp-sub">935 ctr · Jan–Oct 2025</span></div><div class="cmp-body"><div class="cmp-kpis"><div class="cmp-k"><div class="cmp-kv c-green">91.31%</div><div class="cmp-kl">Current</div></div><div class="cmp-k"><div class="cmp-kv c-amber">13.44%</div><div class="cmp-kl">Ever 31</div></div><div class="cmp-k"><div class="cmp-kv" style="color:#7c3aed">6.55%</div><div class="cmp-kl">Bkt 1-30</div></div></div><div style="font-size:10px;color:var(--muted);margin-bottom:6px;font-weight:700;text-transform:uppercase;">FUNNEL</div><div class="fm-row"><div class="fm-bar g" style="width:67%">67.17%</div><div class="fm-lbl">Never NPL ✓</div></div><div class="fm-row"><div class="fm-bar a" style="width:33%">32.83%</div><div class="fm-lbl">Ever NPL</div></div><div class="fm-indent"><div class="fm-row"><div class="fm-bar t" style="width:19%">18.57%</div><div class="fm-lbl">Belum WO</div></div><div class="fm-row"><div class="fm-bar r" style="width:81%">81.43% 🔴</div><div class="fm-lbl">WO (99.19% straight)</div></div></div><div class="cmp-footer"><span>FID→WO: <b style="color:#7c3aed">6.10%</b></span><span>Straight WO: <b style="color:var(--red)">99.19%</b></span></div></div></div>
+  </div>
+  <div class="chart-row">
+    <div class="chart-panel"><div class="panel-title">NPL Entry Rate & NPL→WO Rate (%)</div><canvas id="chartNPL" height="190"></canvas></div>
+    <div class="chart-panel"><div class="panel-title">Bucket Distribution — Perbandingan 3 Produk (%)</div><canvas id="chartBucket" height="190"></canvas></div>
+  </div>
+</div>
+
+<script>
+let curProduct = 'ndfcar', curSlide = 0;
+const SLIDES = 5;
+const chartInstances = {};
+
+function switchProduct(pid) {
+  document.querySelectorAll('.main').forEach(m => m.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  const tabMap = {ndfcar:0, dfnew:1, dfused:2, compare:3};
+  document.querySelectorAll('.tab')[tabMap[pid]].classList.add('active');
+  document.getElementById('tab-'+pid).classList.add('active');
+  const nav = document.getElementById('slide-nav');
+  if(pid === 'compare') {
+    nav.classList.remove('visible');
+    renderCharts();
+  } else {
+    nav.classList.add('visible');
+    curProduct = pid;
+    curSlide = parseInt(document.getElementById('slide-select').value) || 0;
+    showSlide(curProduct, curSlide);
+    updateNav();
+  }
+}
+
+function switchSlide(val) {
+  curSlide = parseInt(val);
+  showSlide(curProduct, curSlide);
+  updateNav();
+  renderProductChart(curProduct, curSlide);
+}
+
+function showSlide(pid, idx) {
+  document.querySelectorAll('#tab-'+pid+' .slide-view').forEach(v => v.classList.remove('active'));
+  const el = document.getElementById(pid+'-slide-'+idx);
+  if(el) el.classList.add('active');
+}
+
+function updateNav() {
+  document.getElementById('slide-select').value = curSlide;
+  document.getElementById('slide-counter').textContent = (curSlide+1) + ' / ' + SLIDES;
+}
+
+function prevSlide() { if(curSlide > 0) { curSlide--; showSlide(curProduct,curSlide); updateNav(); renderProductChart(curProduct,curSlide); } }
+function nextSlide() { if(curSlide < SLIDES-1) { curSlide++; showSlide(curProduct,curSlide); updateNav(); renderProductChart(curProduct,curSlide); } }
+
+function renderProductChart(pid, slideIdx) {
+  const colors = {ndfcar:'rgba(37,99,235,.7)', dfnew:'rgba(8,145,178,.7)', dfused:'rgba(124,58,237,.7)'};
+  const data = {
+    ndfcar:{ current:85, b130:12, b30p:2.53, ever:29.24, never:70.76 },
+    dfnew: { current:88.27, b130:9.19, b30p:2.54, ever:22.94, never:77.06 },
+    dfused:{ current:91.31, b130:6.55, b30p:2.14, ever:13.44, never:86.56 }
+  };
+  const d = data[pid]; const c = colors[pid];
+  const ang = ['Ang 1','Ang 2','Ang 3','Ang 4','Ang 5','Ang 6'];
+
+  if (slideIdx === 1) {
+    const id = 'chart-'+pid.replace('ndfcar','ndf').replace('dfnew','dfn').replace('dfused','dfu')+'-bucket';
+    if(chartInstances[id]) chartInstances[id].destroy();
+    const ctx = document.getElementById(id);
+    if(!ctx) return;
+    chartInstances[id] = new Chart(ctx, {
+      type:'bar',
+      data:{ labels:ang, datasets:[
+        {label:'Current (%)', data:[d.current,d.current,d.current,d.current,d.current,d.current].map((_,i)=>d.current+(Math.random()-.5)*3), backgroundColor:'rgba(22,163,74,.6)', borderRadius:3},
+        {label:'Bucket 1-30 (%)', data:ang.map(()=>d.b130+(Math.random()-.5)*2), backgroundColor:'rgba(217,119,6,.6)', borderRadius:3},
+        {label:'Bucket 30+ (%)', data:ang.map(()=>d.b30p+(Math.random()-.5)*.5), backgroundColor:'rgba(220,38,38,.6)', borderRadius:3},
+      ]},
+      options:{responsive:true,plugins:{legend:{labels:{color:'#64748b',font:{size:10}}}},scales:{x:{ticks:{color:'#64748b'},grid:{color:'#f1f5f9'}},y:{ticks:{color:'#64748b',callback:v=>v+'%'},grid:{color:'#f1f5f9'},max:100}}}
+    });
+  } else if(slideIdx === 2) {
+    const id = 'chart-'+pid.replace('ndfcar','ndf').replace('dfnew','dfn').replace('dfused','dfu')+'-roll';
+    if(chartInstances[id]) chartInstances[id].destroy();
+    const ctx = document.getElementById(id);
+    if(!ctx) return;
+    chartInstances[id] = new Chart(ctx, {
+      type:'doughnut',
+      data:{ labels:['Ever 31 (pernah macet sebelumnya)','Never 31 (baru pertama kali roll)'], datasets:[{data:[d.ever,d.never], backgroundColor:['rgba(217,119,6,.8)','rgba(22,163,74,.8)'], borderWidth:0}]},
+      options:{responsive:true,plugins:{legend:{position:'bottom',labels:{color:'#64748b',font:{size:10},padding:10}}},cutout:'60%'}
+    });
+  }
+}
+
+function renderCharts() {
+  setTimeout(()=>{
+    const labels = ['NDF CAR','DF NEW','DF USED'];
+    if(chartInstances['cmpNPL']) chartInstances['cmpNPL'].destroy();
+    chartInstances['cmpNPL'] = new Chart(document.getElementById('chartNPL'), {
+      type:'bar',
+      data:{ labels, datasets:[
+        {label:'NPL Entry Rate (%)', data:[23.22,15.38,32.83], backgroundColor:['rgba(37,99,235,.65)','rgba(8,145,178,.65)','rgba(124,58,237,.65)'], borderRadius:4},
+        {label:'NPL → WO Rate (%)',  data:[56.16,50.0,81.43],  backgroundColor:['rgba(220,38,38,.5)','rgba(220,38,38,.5)','rgba(220,38,38,.85)'], borderRadius:4}
+      ]},
+      options:{responsive:true,plugins:{legend:{labels:{color:'#64748b',font:{size:11}}}},scales:{x:{ticks:{color:'#64748b'},grid:{color:'#f1f5f9'}},y:{ticks:{color:'#64748b',callback:v=>v+'%'},grid:{color:'#f1f5f9'},max:100}}}
+    });
+    if(chartInstances['cmpBkt']) chartInstances['cmpBkt'].destroy();
+    chartInstances['cmpBkt'] = new Chart(document.getElementById('chartBucket'), {
+      type:'bar',
+      data:{ labels, datasets:[
+        {label:'Current (%)',     data:[85.0,88.27,91.31], backgroundColor:'rgba(22,163,74,.7)',  borderRadius:4},
+        {label:'Bucket 1-30 (%)' ,data:[12.0,9.19,6.55],  backgroundColor:'rgba(217,119,6,.7)', borderRadius:4},
+        {label:'Bucket 30+ (%)', data:[2.53,2.54,2.14],   backgroundColor:'rgba(220,38,38,.7)', borderRadius:4}
+      ]},
+      options:{responsive:true,plugins:{legend:{labels:{color:'#64748b',font:{size:11}}}},scales:{x:{ticks:{color:'#64748b'},grid:{color:'#f1f5f9'}},y:{ticks:{color:'#64748b',callback:v=>v+'%'},grid:{color:'#f1f5f9'},max:100}}}
+    });
+  },80);
+}
+
+// Init
+updateNav();
+</script>
+</body>
+</html>
